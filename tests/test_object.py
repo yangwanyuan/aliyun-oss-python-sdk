@@ -220,9 +220,9 @@ class TestObject(OssTestCase):
         src = self.bucket.get_object(src_key)
         result = self.bucket.put_object(dst_key, src)
 
-        # verify        
+        # verify
         self.assertTrue(src.client_crc is not None)
-        self.assertTrue(src.server_crc is not None)  
+        self.assertTrue(src.server_crc is not None)
         self.assertEqual(src.client_crc, src.server_crc)
         self.assertEqual(result.crc, src.server_crc)
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
@@ -390,7 +390,7 @@ class TestObject(OssTestCase):
             self.assertEqual(e.next_position, len(content1))
         else:
             self.assertTrue(False)
-        
+
         result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
         self.assertEqual(result.next_position, len(content1) + len(content2))
         self.assertTrue(result.crc is not None)
@@ -406,24 +406,24 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
-            
+
     def test_sign_url_with_callback(self):
         key = self.random_key()
-        
+
         def encode_callback(cb_dict):
             cb_str = json.dumps(callback_params).strip()
-            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str))) 
-        
+            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str)))
+
         # callback
         callback_params = {}
         callback_params['callbackUrl'] = 'http://cbsrv.oss.demo.com'
-        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}' 
+        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}'
         encoded_callback = encode_callback(callback_params)
-        
+
         # callback vars
         callback_var_params = {'x:my_var1': 'my_val1', 'x:my_var2': 'my_val2'}
         encoded_callback_var = encode_callback(callback_var_params)
-        
+
         # put with callback
         params = {'callback': encoded_callback, 'callback-var': encoded_callback_var}
         url = self.bucket.sign_url('PUT', key, 60, params=params)
@@ -514,7 +514,7 @@ class TestObject(OssTestCase):
 
     def test_object_exists(self):
         key = self.random_key()
-        
+
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
@@ -533,22 +533,22 @@ class TestObject(OssTestCase):
         headers = self.bucket.get_object(key).headers
         self.assertEqual(headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(headers['x-oss-meta-key2'], 'value2')
-        
+
     def test_get_object_meta(self):
         key = self.random_key()
         content = 'hello'
-        
+
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
-        
+
         # object no exist
         self.assertRaises(NoSuchKey, self.bucket.get_object_meta, key)
 
         self.bucket.put_object(key, content)
-        
+
         # get meta normal
         result = self.bucket.get_object_meta(key)
 
@@ -687,36 +687,36 @@ class TestObject(OssTestCase):
 
         self.assertRaises(oss2.exceptions.InvalidObjectName, self.bucket.put_object, key, content)
 
-    def test_disable_crc(self): 
+    def test_disable_crc(self):
         key = self.random_key('.txt')
         content = random_bytes(1024 * 100)
-        
+
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET, enable_crc=False)
-        
+
         # put
         put_result = bucket.put_object(key, content)
         self.assertFalse(hasattr(put_result, 'get_crc'))
         self.assertTrue(put_result.crc is not None)
-        
-        # get 
+
+        # get
         get_result = bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
         self.assertTrue(get_result.client_crc is None)
         self.assertTrue(get_result.server_crc)
-        
+
         bucket.delete_object(key)
-        
+
         # append
         append_result = bucket.append_object(key, 0, content)
         self.assertFalse(hasattr(append_result, 'get_crc'))
         self.assertTrue(append_result.crc is not None)
-        
+
         append_result = bucket.append_object(key, len(content), content)
         self.assertFalse(hasattr(append_result, 'get_crc'))
         self.assertTrue(append_result.crc is not None)
-        
+
         bucket.delete_object(key)
-        
+
         # multipart
         upload_id = bucket.init_multipart_upload(key).upload_id
 
@@ -744,18 +744,18 @@ class TestObject(OssTestCase):
         key  = self.random_key()
         symlink = self.random_key()
         content = 'hello'
-        
+
         self.bucket.put_object(key, content)
-        
+
         # put symlink normal
         self.bucket.put_symlink(key, symlink)
-        
+
         head_result = self.bucket.head_object(symlink)
         self.assertEqual(head_result.content_length, len(content))
         self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
 
         self.bucket.put_object(key, content)
-        
+
         # put symlink with meta
         self.bucket.put_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
                                                               'X-Oss-Meta-Key2': 'value2'})
@@ -769,19 +769,19 @@ class TestObject(OssTestCase):
         key = self.random_key()
         symlink = self.random_key()
         content = 'hello'
-        
+
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
-        
+
         # object no exist
         self.assertRaises(NoSuchKey, self.bucket.get_symlink, symlink)
-        
+
         self.bucket.put_object(key, content)
         self.bucket.put_symlink(key, symlink)
-        
+
         # get symlink normal
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)

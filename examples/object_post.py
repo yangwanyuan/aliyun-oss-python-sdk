@@ -7,7 +7,7 @@ import base64
 import hmac
 import hashlib
 import os
-import crcmod
+import crcmod2 as crcmod
 import requests
 
 

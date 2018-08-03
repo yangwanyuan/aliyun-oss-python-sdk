@@ -153,7 +153,7 @@ class _Base(object):
         if resp.status // 100 != 2:
             raise exceptions.make_exception(resp)
 
-        # Note that connections are only released back to the pool for reuse once all body data has been read; 
+        # Note that connections are only released back to the pool for reuse once all body data has been read;
         # be sure to either set stream to False or read the content property of the Response object.
         # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
         content_length = oss2.models._hget(resp.headers, 'content-length', int)
@@ -509,6 +509,9 @@ class Bucket(_Base):
             else:
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
+            if self.enable_crc and byte_range is None:
+                utils.check_crc('get', result.client_crc, result.server_crc, result.request_id)
+
             return result
 
     def head_object(self, key, headers=None):
@@ -735,11 +738,17 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
+        parts = sorted(parts, key=lambda p: p.part_number)
+        data = xml_utils.to_complete_upload_request(parts)
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
+
+        result = PutObjectResult(resp)
+
+        if self.enable_crc:
+            utils.check_crc('resumable upload', utils.calc_obj_crc_from_parts(parts), result.crc, result.request_id)
 
         return PutObjectResult(resp)
 

@@ -19,9 +19,8 @@ import calendar
 import datetime
 import time
 import errno
-
 import binascii
-import crcmod
+import crcmod2 as crcmod
 import re
 import random
 
@@ -226,17 +225,32 @@ def make_crc_adapter(data, init_crc=0):
 
     # bytes or file object
     if _has_data_size_attr(data):
-        return _BytesAndFileAdapter(data, 
-                                    size=_get_data_size(data), 
+        return _BytesAndFileAdapter(data,
+                                    size=_get_data_size(data),
                                     crc_callback=Crc64(init_crc))
     # file-like object
-    elif hasattr(data, 'read'): 
+    elif hasattr(data, 'read'):
         return _FileLikeAdapter(data, crc_callback=Crc64(init_crc))
     # iterator
     elif hasattr(data, '__iter__'):
         return _IterableAdapter(data, crc_callback=Crc64(init_crc))
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
+
+
+def check_crc(operation, client_crc, oss_crc, request_id):
+    if client_crc is not None and oss_crc is not None and client_crc != oss_crc:
+        raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation), request_id)
+
+def calc_obj_crc_from_parts(parts, init_crc = 0):
+    obj_crc = 0
+    crc_obj = Crc64(init_crc)
+    for part in parts:
+        if part.crc is None or part.size <= 0:
+            return None
+        obj_crc = crc_obj.combine(obj_crc, part.crc, part.size)
+
+    return obj_crc
 
 
 def make_cipher_adapter(data, cipher_callback):
@@ -292,7 +306,7 @@ class _IterableAdapter(object):
         self.iter = iter(data)
         self.progress_callback = progress_callback
         self.offset = 0
-        
+
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
 
@@ -302,18 +316,18 @@ class _IterableAdapter(object):
     def __next__(self):
         return self.next()
 
-    def next(self):            
+    def next(self):
         _invoke_progress_callback(self.progress_callback, self.offset, None)
 
         content = next(self.iter)
         self.offset += len(content)
-                
+
         _invoke_crc_callback(self.crc_callback, content)
 
         content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
-    
+
     @property
     def crc(self):
         if self.crc_callback:
@@ -334,7 +348,7 @@ class _FileLikeAdapter(object):
         self.fileobj = fileobj
         self.progress_callback = progress_callback
         self.offset = 0
-        
+
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
 
@@ -355,18 +369,18 @@ class _FileLikeAdapter(object):
     def read(self, amt=None):
         content = self.fileobj.read(amt)
         if not content:
-            _invoke_progress_callback(self.progress_callback, self.offset, None) 
+            _invoke_progress_callback(self.progress_callback, self.offset, None)
         else:
             _invoke_progress_callback(self.progress_callback, self.offset, None)
-                
+
             self.offset += len(content)
-                                   
+
             _invoke_crc_callback(self.crc_callback, content)
 
             content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
-    
+
     @property
     def crc(self):
         if self.crc_callback:
@@ -390,7 +404,7 @@ class _BytesAndFileAdapter(object):
         self.progress_callback = progress_callback
         self.size = size
         self.offset = 0
-        
+
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
 
@@ -433,7 +447,7 @@ class _BytesAndFileAdapter(object):
             content = self.data.read(bytes_to_read)
 
         self.offset += bytes_to_read
-            
+
         _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
 
         _invoke_crc_callback(self.crc_callback, content)
@@ -441,7 +455,7 @@ class _BytesAndFileAdapter(object):
         content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
-    
+
     @property
     def crc(self):
         if self.crc_callback:
@@ -456,19 +470,23 @@ class Crc64(object):
 
     _POLY = 0x142F0E1EBA9EA3693
     _XOROUT = 0XFFFFFFFFFFFFFFFF
-    
+
     def __init__(self, init_crc=0):
-        self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+        self.__crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+        self.__combineFunc = crcmod.mkCombineFun(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
 
     def __call__(self, data):
         self.update(data)
-    
+
     def update(self, data):
-        self.crc64.update(data)
-    
+        self.__crc64.update(data)
+
+    def combine(self, crc1, crc2, len2):
+        return self.__combineFunc(crc1, crc2, len2)
+
     @property
     def crc(self):
-        return self.crc64.crcValue
+        return self.__crc64.crcValue
 
 
 def random_aes256_key():

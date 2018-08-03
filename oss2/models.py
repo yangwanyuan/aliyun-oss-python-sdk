@@ -21,12 +21,14 @@ class PartInfo(object):
     :param str etag: 分片的ETag
     :param int size: 分片的大小。仅用在 `list_parts` 的结果里。
     :param int last_modified: 该分片最后修改的时间戳，类型为int。参考 :ref:`unix_time`
+    :param int client_crc: 该分片的CRC64 value
     """
-    def __init__(self, part_number, etag, size=None, last_modified=None):
+    def __init__(self, part_number, etag, size=None, last_modified=None, client_crc = None):
         self.part_number = part_number
         self.etag = etag
         self.size = size
         self.last_modified = last_modified
+        self.crc = client_crc
 
 
 def _hget(headers, key, converter=lambda x: x):
@@ -75,6 +77,12 @@ class HeadObjectResult(RequestResult):
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
 
+        #: 文件CRC64
+        self.__crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
+
+    @property
+    def server_crc(self):
+        return self.__crc
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):
@@ -112,7 +120,6 @@ class GetObjectResult(HeadObjectResult):
         else:
             self.stream = self.resp
         
-        self.__crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
         if self.__crc_enabled:
             self.stream = make_crc_adapter(self.stream)
 
@@ -138,10 +145,7 @@ class GetObjectResult(HeadObjectResult):
             return self.stream.crc
         else:
             return None
-    
-    @property
-    def server_crc(self):
-        return self.__crc
+
 
 
 class PutObjectResult(RequestResult):
@@ -150,7 +154,7 @@ class PutObjectResult(RequestResult):
 
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
-        
+
         #: 文件上传后，OSS上文件的CRC64值
         self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
 
