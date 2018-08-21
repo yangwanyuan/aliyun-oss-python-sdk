@@ -1693,6 +1693,7 @@ class CryptoBucket():
 
 
     def get_object(self, key,
+                   byte_range=None,
                    headers=None,
                    progress_callback=None,
                    params=None):
@@ -1705,6 +1706,7 @@ class CryptoBucket():
             'hello world'
 
         :param key: 文件名
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -1720,8 +1722,12 @@ class CryptoBucket():
         """
         headers = http.CaseInsensitiveDict(headers)
 
-        if 'range' in headers:
-            raise ClientError('Crypto bucket do not support range get')
+        if byte_range and (not utils.is_multiple_sizeof_encrypt_block(byte_range[0])):
+            raise ClientError('Crypto bucket get range start must align to encrypt block')
+
+        range_string = _make_range_string(byte_range)
+        if range_string:
+            headers['range'] = range_string
 
         encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
 
