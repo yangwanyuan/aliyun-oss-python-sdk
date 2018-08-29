@@ -132,10 +132,10 @@ import oss2.utils
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True):
+                 app_name='', enable_crc=True, enable_http20=False):
         self.auth = auth
-        self.endpoint = _normalize_endpoint(endpoint.strip())
-        self.session = session or http.Session()
+        self.endpoint = _normalize_endpoint(endpoint.strip(), enable_http20)
+        self.session = session or http.Session(enable_http20=enable_http20)
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
         self.enable_crc = enable_crc
@@ -195,9 +195,10 @@ class Service(_Base):
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
-                 app_name=''):
+                 app_name='',
+                 enable_http20=False):
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
-                                      app_name=app_name)
+                                      app_name=app_name, enable_http20=enable_http20)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
         """根据前缀罗列用户的Bucket。
@@ -263,9 +264,10 @@ class Bucket(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 enable_crc=True):
+                 enable_crc=True,
+                 enable_http20=False):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name, enable_crc)
+                                     app_name, enable_crc, enable_http20=enable_http20)
 
         self.bucket_name = bucket_name.strip()
 
@@ -1174,7 +1176,8 @@ class CryptoBucket():
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 enable_crc=True):
+                 enable_crc=True,
+                 enable_http20=False):
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
             raise ClientError('Crypto bucket must provide a valid crypto_provider')
@@ -1183,7 +1186,7 @@ class CryptoBucket():
         self.bucket_name = bucket_name.strip()
         self.enable_crc = enable_crc
         self.bucket = Bucket(auth, endpoint, bucket_name, is_cname, session, connect_timeout,
-                             app_name, enable_crc=False)
+                             app_name, enable_crc=False, enable_http20=enable_http20)
 
     def put_object(self, key, data,
                    headers=None,
@@ -1307,9 +1310,12 @@ class CryptoBucket():
             return result
 
 
-def _normalize_endpoint(endpoint):
+def _normalize_endpoint(endpoint, default_https):
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):
-        return 'http://' + endpoint
+        if default_https:
+            return 'https://' + endpoint
+        else:
+            return 'http://' + endpoint
     else:
         return endpoint
 

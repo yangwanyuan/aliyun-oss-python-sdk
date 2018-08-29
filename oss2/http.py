@@ -18,6 +18,7 @@ from .compat import to_bytes
 from .exceptions import RequestError
 from .utils import file_object_remaining_bytes, SizedFileAdapter
 
+from hyper.contrib import HTTP20Adapter
 
 _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
@@ -25,12 +26,15 @@ _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
 
 class Session(object):
     """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
-    def __init__(self):
+    def __init__(self, enable_http20=False):
         self.session = requests.Session()
 
-        psize = defaults.connection_pool_size
-        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
-        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
+        if enable_http20:
+            self.session.mount('https://', HTTP20Adapter())
+        else:
+            psize = defaults.connection_pool_size
+            self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
+            self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
 
     def do_request(self, req, timeout):
         try:
