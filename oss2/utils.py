@@ -290,11 +290,44 @@ def _invoke_cipher_callback(cipher_callback, content):
 class _IterableAdapter(object):
     def __init__(self, data, progress_callback=None, crc_callback=None, cipher_callback=None):
         self.iter = iter(data)
+        #self.size = sum(len(_) for _ in self.iter)
+        #print "$$$$" *100, self.size
+        #self.length = len(list(self.iter))
         self.progress_callback = progress_callback
         self.offset = 0
         
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
+
+    #def __len__(self):
+    #    ##print "&" *200, self.offset
+    #    #size = self.offset
+    #    #temp = self.iter
+    #    ##content = next(self.iter)
+    #    ##size += len(self.iter)
+    #    ##while(content is not None):
+    #    ##while(has_next_value(self)):
+    #    #content = next(self.iter)
+    #    #while True:
+    #    #    try:
+    #    #        #content = next(self.iter)
+    #    #        size += len(content)
+    #    #        content = next(content)
+    #    #        #print "&" * 200, size
+    #    #    except StopIteration:
+    #    #        break
+    #    #self.iter = temp
+    #    #size = self.offset
+    #    #for _ in self.iter:
+    #    #    size += len(_)
+    #    #    print "$" *100, size
+    #    #return size
+    #    print "$" *100, self.size
+    #    return self.size
+
+    #def __getitem__(self, key):
+    #    data = ''.join(list(self.iter))
+    #    return data[key]
 
     def __iter__(self):
         return self

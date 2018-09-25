@@ -81,7 +81,8 @@ class OssTestCase(unittest.TestCase):
         global OSS_AUTH_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 
-        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
+        #self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, 'v1'), OSS_ENDPOINT, OSS_BUCKET, enable_http20=True)
 
         try:
             self.bucket.create_bucket()
@@ -92,7 +93,7 @@ class OssTestCase(unittest.TestCase):
                                              crypto_provider=oss2.LocalRsaProvider())
 
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
+                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK), enable_http20=False)
 
         self.key_list = []
         self.temp_files = []

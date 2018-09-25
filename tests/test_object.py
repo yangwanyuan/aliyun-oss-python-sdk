@@ -406,7 +406,7 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
-            
+
     def test_sign_url_with_callback(self):
         key = self.random_key()
         
